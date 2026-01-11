@@ -1,0 +1,91 @@
+org: ianfs
+service: async-report
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: sa-east-1
+  memorySize: 128
+  environment:
+    DYNAMO_LEADS_TABLE: !Ref LeadsTable
+    GENERATE_REPORT_QUEUE_URl: !Ref GenerateReportQueue
+  iam:
+    role:
+      statements:
+        # Dynamo
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:scan
+          Resource: !GetAtt LeadsTable.Arn
+
+        #SQS
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+          Resource: !GetAtt GenerateReportQueue.Arn
+
+package:
+  individually: true
+
+build:
+  esbuild:
+    bundle: true
+    minify: true
+    sourcemap: false
+    exclude:
+      - '@aws-sdk/*'
+
+functions:
+  populateDynamo:
+    handler: src/functions/http/populateDynamo.handler
+    timeout: 25
+    events:
+      - httpApi:
+          path: /populate-dynamo
+          method: POST
+
+  generateReport:
+    handler: src/functions/http/generateReport.handler
+    events:
+      - httpApi:
+          path: /generate-report
+          method: POST
+
+  processReport:
+    handler: src/functions/queues/processReport.handler
+    events:
+      - sqs:
+          arn: !GetAtt GenerateReportQueue.Arn
+          batchSize: 1
+
+
+resources:
+  Resources:
+    LeadsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: LeadsTable
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+
+    GenerateReportQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: GenerateReportQueue
+        ReceiveMessageWaitTimeSeconds: 20
+        VisibilityTimeout: 180
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt GenerateReportDLQ.Arn
+          maxReceiveCount: 2
+
+    GenerateReportDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: GenerateReportDLQ
+        MessageRetentionPeriod: 1209600 # 14 days
