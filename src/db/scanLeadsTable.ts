@@ -3,10 +3,8 @@ import { dynamoClient } from '../clients/dynamoClient';
 import { env } from '../config/env';
 
 
-export async function scanLeadsTable() {
+export async function* scanLeadsTable() {
   let lastEvaluatedKey: Record<string, any> | undefined;
-
-  const items = [];
 
   do {
     const command = new ScanCommand({
@@ -17,9 +15,6 @@ export async function scanLeadsTable() {
     const { Items = [], LastEvaluatedKey } = await dynamoClient.send(command);
 
     lastEvaluatedKey = LastEvaluatedKey;
-    items.push(...Items);
+    yield Items;
   } while(lastEvaluatedKey);
-
-  console.log(items.length);
-
 }

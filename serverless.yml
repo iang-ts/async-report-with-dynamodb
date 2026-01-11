@@ -9,6 +9,7 @@ provider:
   environment:
     DYNAMO_LEADS_TABLE: !Ref LeadsTable
     GENERATE_REPORT_QUEUE_URl: !Ref GenerateReportQueue
+    REPORTS_BUCKET_NAME: !Ref ReportsBucket
   iam:
     role:
       statements:
@@ -18,12 +19,17 @@ provider:
             - dynamodb:PutItem
             - dynamodb:scan
           Resource: !GetAtt LeadsTable.Arn
-
         #SQS
         - Effect: Allow
           Action:
             - sqs:SendMessage
           Resource: !GetAtt GenerateReportQueue.Arn
+        #S3
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:AbortMultipartUpload
+          Resource: !Join ['/', [!GetAtt ReportsBucket.Arn, '*']]
 
 package:
   individually: true
@@ -54,6 +60,8 @@ functions:
 
   processReport:
     handler: src/functions/queues/processReport.handler
+    timeout: 180
+    memorySize: 512
     events:
       - sqs:
           arn: !GetAtt GenerateReportQueue.Arn
