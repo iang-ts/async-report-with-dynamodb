@@ -1,6 +1,8 @@
 org: ianfs
 service: async-report
 
+useDotEnv: true
+
 provider:
   name: aws
   runtime: nodejs20.x
@@ -10,6 +12,7 @@ provider:
     DYNAMO_LEADS_TABLE: !Ref LeadsTable
     GENERATE_REPORT_QUEUE_URl: !Ref GenerateReportQueue
     REPORTS_BUCKET_NAME: !Ref ReportsBucket
+    RESEND_API_KEY: ${env:RESEND_API_KEY}
   iam:
     role:
       statements:
@@ -29,6 +32,7 @@ provider:
           Action:
             - s3:PutObject
             - s3:AbortMultipartUpload
+            - s3:GetObject
           Resource: !Join ['/', [!GetAtt ReportsBucket.Arn, '*']]
 
 package:
@@ -46,6 +50,7 @@ functions:
   populateDynamo:
     handler: src/functions/http/populateDynamo.handler
     timeout: 25
+    memorySize: 512
     events:
       - httpApi:
           path: /populate-dynamo
