@@ -6,7 +6,7 @@ import { env } from '../../config/env';
 import { response } from '../../utils/response';
 
 export async function handler() {
-  const total = 5000;
+  const total = 2;
 
   const responses =  await Promise.allSettled(
     Array.from({ length: total }, async () => {
@@ -14,9 +14,9 @@ export async function handler() {
         TableName: env.DYNAMO_LEADS_TABLE,
         Item: {
           id: randomUUID(),
-          name: faker.person.fullName,
+          name: faker.person.fullName(),
           email: faker.internet.email().toLowerCase(),
-          jobTitle: faker.person.jobTitle,
+          jobTitle: faker.person.jobTitle(),
         },
       });
 
